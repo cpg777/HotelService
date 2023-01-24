@@ -1,0 +1,2 @@
+# HotelService
+Example application
