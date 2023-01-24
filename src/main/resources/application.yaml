@@ -1,0 +1,4 @@
+port:
+  8080
+folder: "./data/hotelReservations.json"
+baseUrl: "http://localhost:8080"
