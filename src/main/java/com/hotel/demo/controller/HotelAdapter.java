@@ -1,12 +1,10 @@
 package com.hotel.demo.controller;
 
-import com.hotel.demo.controller.entity.Reservation;
-
+import com.hotel.demo.dto.Reservation;
 import com.hotel.demo.service.HotelService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
@@ -15,9 +13,6 @@ import java.util.List;
 @RestController
 public class HotelAdapter implements HotelController {
     private static final Logger logger = LoggerFactory.getLogger(HotelAdapter.class);
-
-    @Value("${baseUrl}")
-    String baseUrl;
 
     private static final String RESOURCE_NAME = "hotel";
 
@@ -57,7 +52,7 @@ public class HotelAdapter implements HotelController {
     }
 
     @Override
-    @GetMapping(path = "/" + RESOURCE_NAME + "{id}")
+    @GetMapping(path = "/" + RESOURCE_NAME + "/id={id}")
     @ResponseBody
     public Reservation getReservationById(@PathVariable Integer id) throws Exception {
         logger.info("Start request to get reservation by id: {}", id);

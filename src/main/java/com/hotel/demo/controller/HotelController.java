@@ -1,6 +1,7 @@
 package com.hotel.demo.controller;
 
-import com.hotel.demo.controller.entity.Reservation;
+import com.hotel.demo.dto.Reservation;
+
 import java.util.List;
 public interface HotelController {
     void createReservation(Reservation reservation) throws Exception;

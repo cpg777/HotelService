@@ -1,21 +1,18 @@
 package com.hotel.demo.persistence;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hotel.demo.persistence.entity.ReservationEntity;
-import com.hotel.demo.service.dto.ReservationDto;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
+import com.hotel.demo.dto.Reservation;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.io.*;
+import java.util.*;
 
 @Repository
 public class ReservationPersistenceAdapter implements ReservationPersistencePort {
@@ -24,70 +21,107 @@ public class ReservationPersistenceAdapter implements ReservationPersistencePort
     @Value("${folder}")
     String folder;
     @Override
-    public void saveReservation(ReservationDto reservation) {
+    public void saveReservation(Reservation reservation) throws Exception {
         logger.info("Start persistence reservation creation");
-        final ReservationEntity reservationEntity = ReservationEntity.valueOf(reservation);
-        write(reservationEntity);
+        write(reservation);
         logger.info("End persistence reservation creation");
     }
 
     @Override
-    public void updateReservation(ReservationDto reservation) throws Exception {
+    public void updateReservation(Reservation reservation) throws Exception {
         logger.info("Start persistence reservation update");
-        final ReservationEntity reservationEntity = ReservationEntity.valueOf(reservation);
-        final ReservationEntity found = foundById(reservation.getReservationId());
+        final Reservation found = foundById(reservation.getId());
         if (found == null) {
             throw new Exception("Reservation not found");
         } else {
-            // remove it
-            write(reservationEntity);
+            update(reservation);
         }
         logger.info("End persistence reservation update");
     }
 
     @Override
-    public ReservationDto getById(Integer reservationId) throws IOException {
+    public Reservation getById(Integer reservationId) throws IOException {
         logger.info("Start persistence get reservation by id");
-        foundById(reservationId);
+        Reservation reservation = foundById(reservationId);
         logger.info("End persistence get reservation by id");
-        return null;
+        return reservation;
     }
 
     @Override
-    public List<ReservationDto> getAllReservations() throws IOException {
+    public List<Reservation> getAllReservations() throws IOException {
         logger.info("Start persistence get reservations");
-        final List<ReservationEntity> reservationList = foundAll();
-        final List<ReservationDto> allReservation = new ArrayList<>();
-        for (ReservationEntity entity: reservationList) {
-            allReservation.add(ReservationDto.valueOf(entity));
-        }
-        return allReservation;
+        final List<Reservation> reservationList = foundAll();
+        logger.info("End persistence get reservations");
+        return reservationList;
     }
 
-    private void write(ReservationEntity reservation) {
-        try (FileWriter file = new FileWriter(folder)) {
-            file.write(reservation.toString());
-            file.flush();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private ReservationEntity foundById(Integer reservationId) throws IOException {
+    private void write(Reservation reservation) throws Exception {
         final ObjectMapper objectMapper = new ObjectMapper();
-        final List<ReservationEntity> reservationList = objectMapper.readValue(new File(folder), new TypeReference<List<ReservationEntity>>() {});
-        Optional<ReservationEntity> reservation = null;
-        for (ReservationEntity entity: reservationList) {
-            if (reservationId.equals(entity.getId())) {
-                reservation = Optional.of(entity);
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+        if (foundById(reservation.getId()) != null) {
+            throw new Exception("Reservation already exist");
+        } else {
+            final List<Reservation> reservationEntityList = new ArrayList<>();
+            final List<Reservation> dataFromFile = foundAll();
+            reservationEntityList.addAll(dataFromFile);
+            reservationEntityList.add(reservation);
+            final File file = new File(
+                    this.getClass().getClassLoader().getResource(folder).getFile()
+            );
+            objectMapper.writeValue(file, reservationEntityList);
+        }
+    }
+
+    private void update(Reservation reservation) throws Exception {
+        final ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+        try {
+            final List<Reservation> reservationEntityList = new ArrayList<>();
+            final List<Reservation> dataFromFile = foundAll();
+            reservationEntityList.addAll(dataFromFile);
+            reservationEntityList.removeIf(d -> d.getId().equals(reservation.getId()));
+            reservationEntityList.add(reservation);
+            final File file = new File(
+                    this.getClass().getClassLoader().getResource(folder).getFile()
+            );
+            objectMapper.writeValue(file, reservationEntityList);
+        } catch (Exception e) {
+         throw new Exception("Cannot update the reservation");
+        }
+    }
+
+    private Reservation foundById(Integer reservationId) throws IOException {
+        final ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+        objectMapper.configure(JsonParser.Feature.AUTO_CLOSE_SOURCE, true);
+        final File file = new File(
+                this.getClass().getClassLoader().getResource(folder).getFile()
+        );
+        Reservation reservation = null;
+        if (file.length() != 0) {
+            final Reservation[] reservationList = objectMapper.readValue(file,  Reservation[].class);
+            for (Reservation entity: reservationList) {
+                if (reservationId.equals(entity.getId())) {
+                    reservation = entity;
+                }
             }
         }
-        return reservation.orElse(null);
+        return reservation;
     }
-
-    private List<ReservationEntity> foundAll() throws IOException {
+    private List<Reservation> foundAll() throws IOException {
         final ObjectMapper objectMapper = new ObjectMapper();
-        final List<ReservationEntity> reservationList = objectMapper.readValue(new File(folder), new TypeReference<List<ReservationEntity>>() {});
-        return reservationList;
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+        final File file = new File(
+                this.getClass().getClassLoader().getResource(folder).getFile()
+        );
+        if (file.length() == 0) {
+            return new ArrayList<>();
+        } else {
+            return Arrays.asList(objectMapper.readValue(file,  Reservation[].class));
+        }
     }
 }

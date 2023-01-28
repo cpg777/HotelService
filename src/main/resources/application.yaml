@@ -1,4 +1,14 @@
-port:
-  8080
-folder: "./data/hotelReservations.json"
-baseUrl: "http://localhost:8080"
+server:
+  port:
+    8080
+spring:
+  jackson-date-format: yyyy-MM-dd HH:mm:ss
+logging:
+  level:
+    com:
+      hotel:
+        demo:
+          controller: INFO
+          persistence: INFO
+          service: INFO
+folder: "hotelReservations.json"
